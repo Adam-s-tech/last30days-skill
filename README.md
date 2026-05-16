@@ -170,7 +170,6 @@ Say "eli5 on" after any research run. The synthesis rewrites in plain language. 
 | **Codex, Cursor, Copilot, Gemini CLI, GitHub Copilot, or any of 50+ [Agent Skills](https://agentskills.io) hosts** | `npx skills add mvanhorn/last30days-skill` | `npx skills update last30days` |
 | **claude.ai** (web) | [Download `last30days.skill`](https://github.com/mvanhorn/last30days-skill/releases/latest/download/last30days.skill) and upload via Settings > Capabilities > Skills > + | Re-download and re-upload |
 | **OpenClaw** | `clawhub install last30days-official` | `clawhub update last30days-official` |
-| **Gemini CLI** (native extension) | Clone then `gemini extensions install ./last30days-skill` (see below) | Re-pull and reinstall |
 
 ### Claude Code (recommended)
 
@@ -231,17 +230,6 @@ Enable "Code execution and file creation" under Capabilities first — skills wo
 
 ```bash
 clawhub install last30days-official
-```
-
-### Gemini CLI (native extension)
-
-The `npx skills add -a gemini-cli` path above is the simpler route. The native Gemini extension install is kept here for users who prefer it or already have a Gemini extensions workflow.
-
-Gemini CLI v0.9.0 has an upstream installer bug that can fail with `Configuration file not found at /tmp/gemini-extensionXXXXXX/gemini-extension.json` ([upstream issue](https://github.com/google-gemini/gemini-cli/issues/11452)). Workaround:
-
-```bash
-git clone https://github.com/mvanhorn/last30days-skill
-gemini extensions install ./last30days-skill
 ```
 
 ### Manual (developer)
