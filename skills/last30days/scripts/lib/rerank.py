@@ -264,6 +264,7 @@ def _entity_grounded(haystack: str, primary_entity: str) -> bool:
     compounds ("stripes"), and vacuous matches from very short heads ("X",
     "Go") merely disable the penalty rather than burying good items.
     """
+    haystack = haystack.lower()
     tokens = primary_entity.lower().split()
     if not tokens:
         return True

@@ -248,6 +248,9 @@ class EntityGroundingTests(unittest.TestCase):
         rerank._apply_fallback_scores([on_topic], primary_entity="Hermes Agent")
         self.assertEqual("fallback-local-score", on_topic.explanation)
 
+    def test_entity_grounded_is_case_insensitive_without_caller_preprocessing(self):
+        self.assertTrue(rerank._entity_grounded("HERMES agent rocks", "Hermes Agent"))
+
     def test_fallback_skips_demotion_for_empty_text_candidates(self):
         empty = self._candidate("", "")
         rerank._apply_fallback_scores([empty], primary_entity="Hermes Agent")

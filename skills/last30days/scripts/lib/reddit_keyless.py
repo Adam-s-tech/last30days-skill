@@ -174,8 +174,8 @@ def _slot_priority(topic: str, posts: List[Dict[str, Any]]) -> List[Dict[str, An
     check (head token of the topic's stripped primary entity present in the
     post text) so slots go to posts likely to survive final ranking — keying
     on the same head token keeps the two paths from diverging. Falls back to
-    token-overlap relevance when the
-    topic yields no usable primary entity. Within each tier the incoming
+    token-overlap relevance when the topic yields no usable primary entity.
+    Within each tier the incoming
     (score-first) order is preserved. Never raises; on any failure the
     incoming order is returned unchanged.
     """
@@ -188,7 +188,7 @@ def _slot_priority(topic: str, posts: List[Dict[str, Any]]) -> List[Dict[str, An
         entity = rerank._primary_entity(topic).lower()
         if entity:
             def _matches(post: Dict[str, Any]) -> bool:
-                return rerank._entity_grounded(_post_text(post).lower(), entity)
+                return rerank._entity_grounded(_post_text(post), entity)
         else:
             prepared = relevance.PreparedQuery(topic)
 
