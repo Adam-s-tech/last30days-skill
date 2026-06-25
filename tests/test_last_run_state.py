@@ -119,6 +119,42 @@ class LastRunStateTests(unittest.TestCase):
             self.assertIsNone(entity_reports)
             self.assertEqual(config_dir / "last-report.json", cache_path)
 
+    def test_last_report_cache_expires_after_ttl(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir):
+                cli._write_last_run("OpenClaw", _report("OpenClaw"))
+                cache_path = config_dir / "last-report.json"
+                payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                payload["timestamp"] = "2026-01-01T00:00:00+00:00"
+                cache_path.write_text(json.dumps(payload), encoding="utf-8")
+                loaded = cli._load_last_report_cache("OpenClaw", ttl_seconds=3600)
+
+            self.assertIsNone(loaded)
+
+    def test_last_report_cache_ttl_zero_disables_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir):
+                cli._write_last_run("OpenClaw", _report("OpenClaw"))
+                loaded = cli._load_last_report_cache("OpenClaw", ttl_seconds=0)
+
+            self.assertIsNone(loaded)
+
+    def test_partial_comparison_cache_does_not_degrade_to_single_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            reports = [("Alpha", _report("Alpha")), ("Beta", _report("Beta"))]
+            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir):
+                cli._write_last_run("Alpha vs Beta", reports[0][1], entity_reports=reports)
+                cache_path = config_dir / "last-report.json"
+                payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                payload["reports"] = payload["reports"][:1]
+                cache_path.write_text(json.dumps(payload), encoding="utf-8")
+                loaded = cli._load_last_report_cache("Alpha vs Beta")
+
+            self.assertIsNone(loaded)
+
     def test_html_synthesis_reuses_cached_single_report_without_pipeline_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_dir = Path(tmp) / "config"
@@ -202,6 +238,42 @@ class LastRunStateTests(unittest.TestCase):
                      "last30days.py",
                      "Different",
                      "Topic",
+                     "--emit=html",
+                     "--synthesis-file",
+                     str(synthesis_path),
+                 ]), \
+                 mock.patch.dict(os.environ, {"LAST30DAYS_SKIP_PREFLIGHT": "1"}, clear=False):
+                stdout = io.StringIO()
+                stderr = io.StringIO()
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    rc = cli.main()
+
+            self.assertEqual(0, rc)
+            self.assertTrue(run_mock.called)
+            self.assertIn("No matching cached report data", stderr.getvalue())
+            self.assertIn("Cached synthesis body.", stdout.getvalue())
+
+    def test_html_synthesis_falls_back_when_cache_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            synthesis_path = Path(tmp) / "synthesis.md"
+            synthesis_path.write_text("Cached synthesis body.", encoding="utf-8")
+            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir):
+                cli._write_last_run("OpenClaw", _report("OpenClaw"))
+                cache_path = config_dir / "last-report.json"
+                payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                payload["timestamp"] = "2026-01-01T00:00:00+00:00"
+                cache_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            fresh_report = _report("OpenClaw")
+            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir), \
+                 mock.patch.object(cli.env, "get_config", return_value={}), \
+                 mock.patch.object(cli.pipeline, "diagnose", return_value=_diag()), \
+                 mock.patch.object(cli.pipeline, "run", return_value=fresh_report) as run_mock, \
+                 mock.patch.object(cli.ui, "ProgressDisplay"), \
+                 mock.patch.object(sys, "argv", [
+                     "last30days.py",
+                     "OpenClaw",
                      "--emit=html",
                      "--synthesis-file",
                      str(synthesis_path),

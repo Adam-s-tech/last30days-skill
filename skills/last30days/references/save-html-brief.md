@@ -44,7 +44,9 @@ SYNTHESIS_EOF
 #    resolved --x-handle/--subreddits/etc). On a same-topic follow-up, the
 #    engine reuses the structured last-report cache at
 #    ~/.config/last30days/last-report.json to build badge metadata and footer
-#    without re-running source fetchers. If the cache is missing or for a
+#    without re-running source fetchers. That cache is intentionally short-lived
+#    (default: one hour; tune with LAST30DAYS_REPORT_CACHE_TTL_SECONDS, or set
+#    it to 0 to disable reuse). If the cache is stale, missing, or for a
 #    different topic, stderr says "No matching cached report data" and the
 #    engine falls back to a fresh run; the same scope flags keep that fallback
 #    aligned with the synthesis body.
@@ -94,7 +96,7 @@ Same flow when the topic is `X vs Y` (or `X vs Y vs Z`). The engine routes throu
 
 If the user runs `/last30days OpenClaw` normally, sees the synthesis in chat, and THEN says "save that as HTML" or "give me a shareable version" in a follow-up turn, do the same save flow on the synthesis you wrote in the previous turn. Do not re-research; the synthesis is already in the conversation history. Just write it to the temp file and call the engine with `--emit=html --synthesis-file`.
 
-The engine will try to reuse `~/.config/last30days/last-report.json` for that second invocation. If stderr says it is reusing cached report data, continue normally. If stderr says no matching cache exists, let the command finish only if you supplied the same scope flags as the original run; otherwise stop and re-run with the original flags so the HTML footer does not describe a different dataset.
+The engine will try to reuse `~/.config/last30days/last-report.json` for that second invocation when it is still within `LAST30DAYS_REPORT_CACHE_TTL_SECONDS` (default: one hour). If stderr says it is reusing cached report data, continue normally. If stderr says no matching cache exists, the cache may be stale; let the command finish only if you supplied the same scope flags as the original run. Otherwise stop and re-run with the original flags so the HTML footer does not describe a different dataset.
 
 ## What NOT to do
 

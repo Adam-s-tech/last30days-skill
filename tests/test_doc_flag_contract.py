@@ -49,3 +49,12 @@ def test_html_reference_documents_structured_cache_reuse():
     assert "~/.config/last30days/last-report.json" in text
     assert "without re-running source fetchers" in text
     assert "No matching cached report data" in text
+    assert "LAST30DAYS_REPORT_CACHE_TTL_SECONDS" in text
+    assert "default: one hour" in text
+
+
+def test_configuration_documents_report_cache_ttl():
+    text = CONFIGURATION.read_text(encoding="utf-8")
+    assert "LAST30DAYS_REPORT_CACHE_TTL_SECONDS" in text
+    assert "defaults to `3600`" in text
+    assert "`0` to disable report-cache reuse" in text

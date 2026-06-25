@@ -603,12 +603,42 @@ def _show_runtime_ui(
 
 
 REPORT_CACHE_VERSION = "last30days-report-cache/v1"
+DEFAULT_REPORT_CACHE_TTL_SECONDS = 3600
 
 
 def _last_report_cache_path() -> Path | None:
     if env.CONFIG_DIR is None:
         return None
     return env.CONFIG_DIR / "last-report.json"
+
+
+def _report_cache_ttl_seconds(config: dict[str, object]) -> int:
+    raw = os.environ.get("LAST30DAYS_REPORT_CACHE_TTL_SECONDS")
+    if raw is None:
+        raw = config.get("LAST30DAYS_REPORT_CACHE_TTL_SECONDS")
+    if raw is None or raw == "":
+        return DEFAULT_REPORT_CACHE_TTL_SECONDS
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_REPORT_CACHE_TTL_SECONDS
+
+
+def _is_report_cache_fresh(timestamp: object, ttl_seconds: int) -> bool:
+    if ttl_seconds <= 0:
+        return False
+    if not isinstance(timestamp, str) or not timestamp:
+        return False
+    try:
+        created_at = datetime.datetime.fromisoformat(timestamp)
+    except ValueError:
+        return False
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=datetime.timezone.utc)
+    age = datetime.datetime.now(datetime.timezone.utc) - created_at.astimezone(
+        datetime.timezone.utc
+    )
+    return age.total_seconds() <= ttl_seconds
 
 
 def _write_last_run(
@@ -649,6 +679,7 @@ def _write_last_run(
 
 def _load_last_report_cache(
     topic: str,
+    ttl_seconds: int = DEFAULT_REPORT_CACHE_TTL_SECONDS,
 ) -> tuple[schema.Report, list[tuple[str, schema.Report]] | None, Path] | None:
     cache_path = _last_report_cache_path()
     if cache_path is None or not cache_path.exists():
@@ -656,6 +687,8 @@ def _load_last_report_cache(
     try:
         payload = json.loads(cache_path.read_text(encoding="utf-8"))
         if payload.get("schema") != REPORT_CACHE_VERSION:
+            return None
+        if not _is_report_cache_fresh(payload.get("timestamp"), ttl_seconds):
             return None
         cached_topic = str(payload.get("topic") or "").strip().lower()
         if cached_topic != topic.strip().lower():
@@ -670,7 +703,11 @@ def _load_last_report_cache(
         ]
         if not entity_reports:
             return None
-        if payload.get("comparison") and len(entity_reports) > 1:
+        if payload.get("comparison"):
+            if len(entity_reports) < 2:
+                return None
+            if len(entity_reports) != len(reports_payload):
+                return None
             return entity_reports[0][1], entity_reports, cache_path
         return entity_reports[0][1], None, cache_path
     except Exception:
@@ -918,7 +955,10 @@ def main() -> int:
             return 2
 
     if args.emit == "html" and synthesis_md is not None:
-        cached = _load_last_report_cache(topic)
+        cached = _load_last_report_cache(
+            topic,
+            ttl_seconds=_report_cache_ttl_seconds(config),
+        )
         if cached is not None:
             cached_report, cached_entity_reports, cache_path = cached
             sys.stderr.write(
